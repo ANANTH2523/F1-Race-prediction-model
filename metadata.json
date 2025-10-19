@@ -1,0 +1,5 @@
+{
+  "name": "F1 Race Predictor",
+  "description": "An AI-powered application to predict Formula 1 race outcomes, including podium finishers, fastest lap, weather conditions, driver of the day, and fastest pitstop, along with win probabilities for each driver.",
+  "requestFramePermissions": []
+}
