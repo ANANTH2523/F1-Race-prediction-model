@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { PredictionData, DriverStatsEntry } from './types';
 import { F1_2026_DRIVERS, F1_WDC_STANDINGS } from "./constants";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 
 const driverStatsSchema = {
     type: Type.OBJECT,
@@ -143,6 +143,12 @@ const predictionSchema = {
 };
 
 export const getRacePrediction = async (race: string, historicalData: string): Promise<PredictionData> => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        throw new Error("API Key is missing. Please configure GEMINI_API_KEY in your environment variables.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     
     const driverList = F1_2026_DRIVERS.join(', ');
     const wdcStandings = JSON.stringify(F1_WDC_STANDINGS, null, 2);
