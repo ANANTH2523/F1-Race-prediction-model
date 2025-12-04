@@ -1,7 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import type { WinProbability } from '../types';
-import { TEAM_COLORS } from '../constants';
+import type { WinProbability } from './types';
+import { TEAM_COLORS } from './constants';
 
 interface WinProbabilityChartProps {
   data: WinProbability[];

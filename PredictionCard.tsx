@@ -1,5 +1,5 @@
 import React from 'react';
-import { TEAM_COLORS, TEAM_LOGOS } from '../constants';
+import { TEAM_COLORS, TEAM_LOGOS } from './constants';
 
 interface PredictionCardProps {
   title: string;

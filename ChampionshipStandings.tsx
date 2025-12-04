@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ChampionshipStanding } from '../types';
-import { TEAM_COLORS } from '../constants';
+import type { ChampionshipStanding } from './types';
+import { TEAM_COLORS } from './constants';
 
 interface ChampionshipStandingsProps {
   standings: ChampionshipStanding[];

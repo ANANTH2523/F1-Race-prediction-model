@@ -1,7 +1,7 @@
 // This file contains the Podium component, responsible for visualizing the top 3 drivers.
 import React from 'react';
-import type { PositionInfo } from '../types';
-import { TEAM_COLORS } from '../constants';
+import type { PositionInfo } from './types';
+import { TEAM_COLORS } from './constants';
 
 interface PodiumProps {
   drivers: PositionInfo[];

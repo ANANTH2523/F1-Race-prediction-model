@@ -1,6 +1,6 @@
 import React from 'react';
-import type { RaceResultInfo, DriverStats } from '../types';
-import { TEAM_COLORS } from '../constants';
+import type { RaceResultInfo, DriverStats } from './types';
+import { TEAM_COLORS } from './constants';
 
 interface ResultsTableProps {
   results: RaceResultInfo[];

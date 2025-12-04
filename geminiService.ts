@@ -1,7 +1,7 @@
 // This file provides services for interacting with the Google Gemini API.
 import { GoogleGenAI, Type } from "@google/genai";
-import type { PredictionData, DriverStatsEntry } from '../types';
-import { F1_2025_DRIVERS, F1_WDC_STANDINGS } from "../constants";
+import type { PredictionData, DriverStatsEntry } from './types';
+import { F1_2026_DRIVERS, F1_WDC_STANDINGS } from "./constants";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -144,15 +144,16 @@ const predictionSchema = {
 
 export const getRacePrediction = async (race: string, historicalData: string): Promise<PredictionData> => {
     
-    const driverList = F1_2025_DRIVERS.join(', ');
+    const driverList = F1_2026_DRIVERS.join(', ');
     const wdcStandings = JSON.stringify(F1_WDC_STANDINGS, null, 2);
 
     const prompt = `
     Analyze the upcoming Formula 1 race at ${race} and provide a detailed prediction.
 
     Current Context:
+    - 2026 F1 Grid: 11 teams, 22 drivers total including the new Cadillac F1 Team.
     - Driver Grid for the race: ${driverList}.
-    - Current WDC Standings: ${wdcStandings}.
+    - Current WDC Standings (2025 Season): ${wdcStandings}.
     - User-provided historical notes: "${historicalData || "None"}".
 
     Your task is to generate a comprehensive race prediction based on all available data, including historical performance at this circuit, current driver and team form, car characteristics, and potential weather conditions.
@@ -163,7 +164,7 @@ export const getRacePrediction = async (race: string, historicalData: string): P
 
     - **teamStrategies**: Predict the likely race strategy for 2-3 key teams. Be specific. Instead of saying 'they will manage their tires', describe the potential strategy in detail, such as 'a likely one-stop starting on Mediums and switching to Hards around lap 28-32 to defend track position' or 'an aggressive two-stop (Soft-Medium-Medium) to leverage their car's pace in clean air, using the undercut'. Justify your prediction based on the team's car performance, driver style, or historical choices at this track.
 
-    Ensure all driver and team names in your JSON output match the official names provided in the constants. For driver stats, provide an entry for every driver in the race.
+    Ensure all driver and team names in your JSON output match the official names provided in the constants. For driver stats, provide an entry for every driver in the race (all 22 drivers).
     `;
 
     try {
