@@ -74,20 +74,26 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
               }
 
               return (
-                <tr key={result.position} className="border-b border-gray-700 hover:bg-gray-700/50">
-                  <td className="p-3 font-bold text-white text-center">{result.position}</td>
+                <tr key={result.position} className={`border-b border-gray-700 hover:bg-gray-700/50 ${result.isDNF ? 'opacity-60 bg-red-900/5' : ''}`}>
+                  <td className={`p-3 font-bold text-center ${result.isDNF ? 'text-red-500' : 'text-white'}`}>
+                    {result.isDNF ? 'DNF' : result.position}
+                  </td>
                   <td className="p-3">
                     <div className="flex items-center">
                       <span className={`w-1 h-6 mr-4 ${teamInfo.bg}`}></span>
                       <div className="relative group">
-                         <span className="font-semibold text-white cursor-help">{result.driver}</span>
+                         <span className={`font-semibold cursor-help ${result.isDNF ? 'text-red-400' : 'text-white'}`}>
+                           {result.driver}
+                         </span>
                          {stats && <DriverStatsTooltip stats={stats} />}
                       </div>
                     </div>
                   </td>
                   <td className="p-3 text-gray-300 text-sm hidden md:table-cell">{result.team}</td>
                   <td className="p-3 font-mono text-white text-center">{result.startingPosition}</td>
-                  <td className="p-3 font-mono font-bold text-center">{changeContent}</td>
+                  <td className="p-3 font-mono font-bold text-center">
+                    {result.isDNF ? <span className="text-gray-600">—</span> : changeContent}
+                  </td>
                 </tr>
               );
             })}

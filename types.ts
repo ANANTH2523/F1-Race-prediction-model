@@ -71,6 +71,18 @@ export interface DriverStatsEntry {
   stats: DriverStats;
 }
 
+export interface LapHistory {
+  lap: number;
+  leader: string;
+  probabilities: { driver: string; probability: number }[];
+}
+
+export interface CommentaryEntry {
+  lap: number;
+  text: string;
+  type: 'event' | 'telemetry' | 'warning' | 'strategy';
+}
+
 export interface PredictionData {
   weather: WeatherPrediction;
   podium: PositionInfo[];
@@ -79,6 +91,8 @@ export interface PredictionData {
   driverOfTheDay: DriverInfo;
   fastestPitstop: FastestPitstopInfo;
   winProbabilities: WinProbability[];
+  probabilityHistory: LapHistory[];
+  commentary: CommentaryEntry[];
   polePosition: TimedInfo;
   keyRivalries: Rivalry[];
   teamStrategies: Strategy[];

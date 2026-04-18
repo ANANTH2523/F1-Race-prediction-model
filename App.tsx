@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { getRacePrediction } from "./geminiService";
+import React, { useState, useCallback, useEffect } from "react";
+import { getRacePrediction } from "./predictionEngine";
 import type { PredictionData, DriverStats } from "./types";
 import { RACE_CIRCUITS, F1_2026_CALENDAR, F1_WDC_STANDINGS } from "./constants";
 import Loader from "./Loader";
@@ -7,9 +7,12 @@ import PredictionCard from "./PredictionCard";
 import Podium from "./Podium";
 import ResultsTable from "./ResultsTable";
 import WinProbabilityChart from "./WinProbabilityChart";
+import RaceCommentary from "./RaceCommentary";
 import ChampionshipStandings from "./ChampionshipStandings";
+import ConstructorStandings from "./ConstructorStandings";
 import StrategicInsights from "./StrategicInsights";
 import DriverLineup2026 from "./DriverLineup2026";
+import { fetchLiveDriverStandings, fetchLiveConstructorStandings, LiveStanding } from "./f1DataService";
 
 // Icons for Prediction Cards
 const ClockIcon = () => (
@@ -176,8 +179,29 @@ const App: React.FC = () => {
   const [prediction, setPrediction] = useState<PredictionData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [historicalData, setHistoricalData] = useState<string>("");
-  const [showHistoryInput, setShowHistoryInput] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'drivers'|'constructors'>('drivers');
+
+  const [liveDrivers, setLiveDrivers] = useState<LiveStanding[]>([]);
+  const [liveConstructors, setLiveConstructors] = useState<LiveStanding[]>([]);
+  const [isLiveActive, setIsLiveActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    async function loadLiveData() {
+      try {
+        const [drivers, constructors] = await Promise.all([
+          fetchLiveDriverStandings(),
+          fetchLiveConstructorStandings()
+        ]);
+        setLiveDrivers(drivers);
+        setLiveConstructors(constructors);
+        // If data differs from our fallback length/structure, we consider it live
+        setIsLiveActive(true);
+      } catch (err) {
+        console.warn("Could not fetch live standings, using fallback.");
+      }
+    }
+    loadLiveData();
+  }, []);
 
   const handlePrediction = useCallback(async () => {
     if (!selectedRace) return;
@@ -186,54 +210,79 @@ const App: React.FC = () => {
     setPrediction(null);
 
     try {
-      const predictionData = await getRacePrediction(
-        selectedRace,
-        historicalData
-      );
+      // Create a minimum delay of 4 seconds for the cinematic pit stop
+      const delay = new Promise((resolve) => setTimeout(resolve, 4000));
+      const [predictionData] = await Promise.all([
+        getRacePrediction(
+          selectedRace,
+          liveDrivers,
+          liveConstructors
+        ),
+        delay
+      ]);
       setPrediction(predictionData);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
     } finally {
       setIsLoading(false);
     }
-  }, [selectedRace, historicalData]);
+  }, [selectedRace, liveDrivers, liveConstructors]);
+
+  const resetView = useCallback(() => {
+    setPrediction(null);
+    setError(null);
+  }, []);
 
   const Header = () => (
-    <div className="text-center p-6 md:p-8 bg-black/30 backdrop-blur-md rounded-b-3xl mb-8 shadow-2xl shadow-black/30">
-      <div className="relative max-w-7xl mx-auto flex justify-center items-center animate-fade-in">
-        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter [text-shadow:_0_4px_10px_rgb(0_0_0_/_0.5)]">
+    <div className="p-6 md:p-8 bg-black/30 backdrop-blur-md rounded-b-3xl mb-8 shadow-2xl shadow-black/30">
+      <div className="max-w-7xl mx-auto flex flex-col items-center gap-6 animate-fade-in">
+        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-center [text-shadow:_0_4px_10px_rgb(0_0_0_/_0.5)]">
           <span className="text-red-600">Formula 1</span>
           <span className="text-white"> Race Predictor</span>
         </h1>
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 group hidden sm:block">
-          <div className="flex items-center gap-2 cursor-pointer border border-gray-600 px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-colors">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-gray-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
+        
+        <div className="flex items-center justify-center gap-4 w-full">
+          <button 
+            onClick={resetView}
+            className="flex items-center gap-2 cursor-pointer border border-red-600/50 hover:border-red-500 px-4 py-2.5 rounded-xl bg-red-600/5 hover:bg-red-600/10 transition-all duration-300 group/btn"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 group-hover/btn:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <span className="text-gray-300 font-semibold text-sm hidden md:block">
-              2026 Calendar
+            <span className="text-red-500 font-bold text-xs uppercase tracking-[0.2em]">
+              Current Standings
             </span>
+          </button>
+
+          <div className="group relative">
+            <div className="flex items-center gap-2 cursor-pointer border border-gray-600 px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-colors">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-gray-300"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <span className="text-gray-300 font-semibold text-sm hidden md:block">
+                2026 Calendar
+              </span>
+            </div>
+            <UpcomingRaces />
           </div>
-          <UpcomingRaces />
         </div>
       </div>
       <p
         className="text-gray-300 mt-4 max-w-3xl mx-auto text-lg animate-fade-in"
         style={{ animationDelay: "0.2s" }}
       >
-        Select a circuit and let Gemini AI analyze the 2026 season with 22 drivers
-        across 11 teams to predict the upcoming race.
+        Select a circuit and let our prediction engine analyze the 2026 season to predict the upcoming race.
       </p>
     </div>
   );
@@ -247,7 +296,7 @@ const App: React.FC = () => {
         <select
           value={selectedRace}
           onChange={(e) => setSelectedRace(e.target.value)}
-          className="w-full sm:flex-grow p-4 bg-gray-800/80 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500 transition-colors"
+          className="w-full sm:flex-grow p-4 bg-gray-900/90 border-2 border-gray-700 hover:border-red-500/50 rounded-xl text-white focus:outline-none focus:border-red-500 transition-all duration-300 shadow-inner"
           disabled={isLoading}
         >
           {RACE_CIRCUITS.map((race) => (
@@ -259,36 +308,10 @@ const App: React.FC = () => {
         <button
           onClick={handlePrediction}
           disabled={isLoading}
-          className="w-full sm:w-auto px-10 py-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg"
+          className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white font-black rounded-xl hover:from-red-500 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-800 disabled:cursor-not-allowed transition-all duration-300 transform hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(220,38,38,0.4)] shadow-lg active:scale-95"
         >
           {isLoading ? "ANALYZING..." : "PREDICT"}
         </button>
-      </div>
-      <div className="w-full max-w-xl text-center mt-2">
-        <button
-          onClick={() => setShowHistoryInput((prev) => !prev)}
-          className="text-gray-400 hover:text-white transition-colors text-sm font-semibold py-2"
-        >
-          {showHistoryInput ? "Hide" : "Add"} Historical Notes (Optional)
-          <span
-            className="ml-2 transition-transform duration-300 inline-block"
-            style={{
-              transform: showHistoryInput ? "rotate(180deg)" : "rotate(0deg)",
-            }}
-          >
-            ▼
-          </span>
-        </button>
-        {showHistoryInput && (
-          <div className="animate-fade-in">
-            <textarea
-              value={historicalData}
-              onChange={(e) => setHistoricalData(e.target.value)}
-              placeholder="E.g., 'Last year, Verstappen had engine trouble here. Rain is often a factor at Spa.'"
-              className="w-full mt-2 p-3 bg-gray-900/50 border-2 border-gray-600 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all h-24"
-            />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -303,10 +326,11 @@ const App: React.FC = () => {
       },
       {} as { [driverName: string]: DriverStats }
     );
-
     return (
       <div className="space-y-8 animate-fade-in">
         <Podium drivers={prediction.podium} />
+
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto px-4">
           <PredictionCard
             title="Weather"
@@ -342,11 +366,17 @@ const App: React.FC = () => {
             team={prediction.fastestPitstop.team}
           />
         </div>
-        <StrategicInsights
-          rivalries={prediction.keyRivalries}
-          strategies={prediction.teamStrategies}
-        />
-        <WinProbabilityChart data={prediction.winProbabilities} />
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+           <WinProbabilityChart 
+              history={prediction.probabilityHistory} 
+              currentProbabilities={prediction.winProbabilities}
+           />
+           <RaceCommentary logs={prediction.commentary} />
+         </div>
+         <StrategicInsights
+           rivalries={prediction.keyRivalries}
+           strategies={prediction.teamStrategies}
+         />
         <ResultsTable
           results={prediction.fullResults}
           title="Predicted Race Results"
@@ -400,8 +430,31 @@ const App: React.FC = () => {
       return <PredictionResults />;
     }
     return (
-      <div className="space-y-12">
-        <ChampionshipStandings standings={F1_WDC_STANDINGS} />
+      <div className="space-y-12 animate-fade-in">
+        <div className="flex justify-center mb-8">
+            <div className="bg-gray-800/80 p-1 rounded-full inline-flex shadow-inner">
+                <button 
+                  onClick={() => setActiveTab('drivers')}
+                  className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'drivers' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Drivers
+                </button>
+                <button 
+                  onClick={() => setActiveTab('constructors')}
+                  className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 ${activeTab === 'constructors' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Constructors
+                </button>
+            </div>
+        </div>
+
+        {activeTab === 'drivers' && (
+           <ChampionshipStandings standings={liveDrivers.length > 0 ? liveDrivers : F1_WDC_STANDINGS} isLive={isLiveActive} />
+        )}
+        {activeTab === 'constructors' && (
+           <ConstructorStandings standings={liveConstructors} isLive={isLiveActive} />
+        )}
+
         <DriverLineup2026 />
       </div>
     );

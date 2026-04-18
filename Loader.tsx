@@ -1,91 +1,222 @@
 import React, { useState, useEffect } from 'react';
 
-const loadingTexts = [
-  "ANALYZING TELEMETRY...",
-  "CALCULATING TYRE DEGRADATION...",
-  "SIMULATING QUALIFYING...",
-  "RUNNING RACE STRATEGIES...",
-  "PREPARING THE GRID...",
-];
-
 const Loader: React.FC = () => {
-  const [text, setText] = useState(loadingTexts[0]);
+  const [phase, setPhase] = useState<'entry' | 'pitting' | 'exit'>('entry');
+  const [status, setStatus] = useState('BOX BOX...');
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setText(prev => {
-        const currentIndex = loadingTexts.indexOf(prev);
-        return loadingTexts[(currentIndex + 1) % loadingTexts.length];
-      });
-    }, 2500);
-    return () => clearInterval(interval);
+    // Timing matching the 4s delay in App.tsx
+    // 0-1s: Entry
+    // 1-3s: Pitting
+    // 3-4s: Exit
+    
+    const pitTimer = setTimeout(() => {
+      setPhase('pitting');
+      setStatus('CHANGING TYRES...');
+    }, 1000);
+
+    const exitTimer = setTimeout(() => {
+      setPhase('exit');
+      setStatus('GO GO GO!');
+    }, 3000);
+
+    return () => {
+      clearTimeout(pitTimer);
+      clearTimeout(exitTimer);
+    };
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-8 text-center overflow-hidden py-10">
+    <div className="flex flex-col items-center justify-center min-h-[400px] w-full py-12 overflow-hidden bg-black/20 backdrop-blur-sm rounded-3xl border border-white/5 shadow-2xl">
       <style>{`
-        .scanner-container {
+        .track {
           position: relative;
-          width: 300px;
-          height: 140px;
-        }
-        .car-svg {
           width: 100%;
-          height: 100%;
-          position: absolute;
-          inset: 0;
+          max-width: 600px;
+          height: 120px;
+          border-bottom: 4px solid #333;
+          margin-bottom: 2rem;
+          overflow: visible;
         }
-        .car-path {
-          stroke: #E10600;
-          stroke-width: 1.5;
-          fill: none;
-          filter: drop-shadow(0 0 8px rgba(225, 6, 0, 0.8));
-          clip-path: inset(0 0 100% 0);
-          animation: reveal-car 3s infinite cubic-bezier(0.76, 0, 0.24, 1);
+
+        .pit-box {
+           position: absolute;
+           bottom: 0;
+           left: 50%;
+           transform: translateX(-50%);
+           width: 180px;
+           height: 8px;
+           background: repeating-linear-gradient(
+             45deg,
+             #ffeb3b,
+             #ffeb3b 10px,
+             #000 10px,
+             #000 20px
+           );
+           opacity: 0.5;
         }
-        .scanner-line {
+
+        .car-container {
           position: absolute;
-          width: 100%;
-          height: 3px;
+          bottom: 12px;
+          width: 220px;
+          height: 60px;
+          transition: transform 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          transform-origin: bottom center;
+        }
+
+        .car-entry {
+          transform: translateX(-250%) scale(0.9);
+          animation: enter 1s forwards cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .car-pitting {
+          transform: translateX(-50%) scale(1);
+        }
+
+        .car-exit {
+          transform: translateX(450%) scale(1.1);
+          animation: exit 1s forwards cubic-bezier(0.55, 0.085, 0.68, 0.53);
+        }
+
+        @keyframes enter {
+          0% { transform: translateX(-250%) scale(0.9) rotate(0deg); }
+          70% { transform: translateX(-60%) scale(1) rotate(2deg); } /* Braking dive */
+          100% { transform: translateX(-50%) scale(1) rotate(0deg); }
+        }
+
+        @keyframes exit {
+          0% { transform: translateX(-50%) scale(1) rotate(0deg); }
+          20% { transform: translateX(-40%) scale(1.02) rotate(-3deg); } /* Acceleration squat */
+          100% { transform: translateX(450%) scale(1.1) rotate(0deg); filter: blur(2px); }
+        }
+
+        .wheel {
+          animation: spin 0.3s linear infinite;
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .mechanic {
+          position: absolute;
+          width: 12px;
+          height: 12px;
           background: #E10600;
-          box-shadow: 0 0 15px 5px rgba(225, 6, 0, 0.7);
-          border-radius: 3px;
-          animation: scan 3s infinite cubic-bezier(0.76, 0, 0.24, 1);
+          border-radius: 50%;
+          opacity: 0;
+          filter: blur(1px);
         }
 
-        @keyframes scan {
-          0% {
-            top: -5%;
-            opacity: 0.2;
-          }
-          20% {
-             opacity: 1;
-          }
-          80% {
-            opacity: 1;
-          }
-          100% {
-            top: 105%;
-            opacity: 0.2;
-          }
+        .active-mechanic {
+          animation: flash 0.4s infinite alternate;
         }
 
-        @keyframes reveal-car {
-          0%, 10% {
-            clip-path: inset(0 0 100% 0);
-          }
-          90%, 100% {
-            clip-path: inset(0 0 0% 0);
-          }
+        @keyframes flash {
+          from { opacity: 0.2; transform: scale(1); }
+          to { opacity: 1; transform: scale(1.2); box-shadow: 0 0 10px #E10600; }
+        }
+
+        .car-part {
+          fill: #E10600;
+          stroke: #900;
+          stroke-width: 0.5;
+        }
+
+        .car-carbon {
+          fill: #1a1a1a;
+        }
+
+        .car-accent {
+          fill: #fff;
+          opacity: 0.3;
+        }
+
+        .text-glow {
+          text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(225, 6, 0, 0.3);
         }
       `}</style>
-      <div className="scanner-container">
-        <svg className="car-svg" viewBox="0 0 200 93" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path className="car-path" d="M198.5 42.5C189.9 42.5 183.5 40.5 183.5 37V31M1.5 42.5C10.1 42.5 16.5 40.5 16.5 37V31M16.5 31L26 23.5L41.5 22L51.5 18L72.5 17L82.5 12L116.5 11.5L130 16.5L148.5 17.5L159 22.5L174 23.5L183.5 31M16.5 31V62M183.5 31V62M16.5 62C16.5 58.5 10.1 50.5 1.5 50.5M183.5 62C183.5 58.5 189.9 50.5 198.5 50.5M16.5 62L26 70L41.5 71.5L51.5 75.5L72.5 76.5L82.5 81.5L116.5 82L130 77L148.5 76L159 71L174 70L183.5 62M87 12L90.5 2L108.5 1.5L112 12M89.5 81.5L92 91.5L107 92L110 81.5M41.5 22L45 32H155L159 22.5M41.5 71.5L45 61.5H155L159 71M72.5 17L76.5 32H123.5L130 16.5M72.5 76.5L76.5 61.5H123.5L130 77M82.5 32H116.5M82.5 61.5H116.5M82.5 32V61.5M116.5 32V61.5M26 23.5V70M174 23.5V70" />
-        </svg>
-        <div className="scanner-line"></div>
+
+      <div className="track">
+        <div className="pit-box"></div>
+        
+        {/* Mechanics at pit positions */}
+        {phase === 'pitting' && (
+          <>
+            <div className="mechanic active-mechanic" style={{ left: '42%', bottom: '40px' }} />
+            <div className="mechanic active-mechanic" style={{ left: '58%', bottom: '40px' }} />
+            <div className="mechanic active-mechanic" style={{ left: '42%', bottom: '5px' }} />
+            <div className="mechanic active-mechanic" style={{ left: '58%', bottom: '5px' }} />
+          </>
+        )}
+
+        <div className={`car-container car-${phase}`}>
+          <svg viewBox="0 0 220 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* Realistic modern F1 silhouette */}
+            
+            {/* Rear Wing Endplate */}
+            <path d="M5 15 L35 15 L35 45 L5 45 Z" className="car-carbon" />
+            <path d="M8 20 L32 20 L32 24 L8 24 Z" className="car-part" /> {/* Rear Wing Flap */}
+            
+            {/* Floor/Diffuser */}
+            <path d="M40 50 L180 50 L185 55 L35 55 Z" className="car-carbon" />
+            
+            {/* Main Body / Coke-bottle shape */}
+            <path d="M35 45 C50 45, 60 30, 90 28 C120 26, 150 35, 185 45 L190 50 L40 50 Z" className="car-part" />
+            
+            {/* Sidepod intake area */}
+            <path d="M90 32 L130 32 L130 45 L90 45 Z" fill="#400" />
+            
+            {/* Engine Cover / Shark Fin */}
+            <path d="M60 28 L95 18 L110 25 L110 28 Z" className="car-part" />
+            <path d="M70 18 L105 18 L105 20 L70 20 Z" className="car-carbon" /> {/* Airbox */}
+            
+            {/* Nose Cone */}
+            <path d="M185 45 L215 52 L215 55 L180 50 Z" className="car-part" />
+            
+            {/* Halo */}
+            <path d="M135 32 C135 25, 165 25, 165 32 L160 35 C160 30, 140 30, 140 35 Z" className="car-carbon" />
+            
+            {/* Front Wing */}
+            <path d="M195 52 L220 52 L220 58 L195 58 Z" className="car-carbon" />
+            <path d="M200 53 L218 53 L218 55 L200 55 Z" className="car-part" />
+
+            {/* Reflection / Highlights */}
+            <path d="M95 30 L140 30 L135 35 L100 35 Z" className="car-accent" />
+
+            {/* Rear Wheels */}
+            <g transform="translate(55, 48)">
+              <circle cx="0" cy="0" r="12" fill="#111" />
+              <circle cx="0" cy="0" r="13" fill="none" stroke="#222" strokeWidth="1" />
+              <g className={phase !== 'pitting' ? 'wheel' : ''}>
+                <circle cx="0" cy="0" r="4" fill="#333" />
+                <path d="M-6 0 L6 0 M0 -6 L0 6" stroke="#444" strokeWidth="2" />
+              </g>
+            </g>
+
+            {/* Front Wheels */}
+            <g transform="translate(170, 48)">
+              <circle cx="0" cy="0" r="12" fill="#111" />
+              <circle cx="0" cy="0" r="13" fill="none" stroke="#222" strokeWidth="1" />
+              <g className={phase !== 'pitting' ? 'wheel' : ''}>
+                <circle cx="0" cy="0" r="4" fill="#333" />
+                <path d="M-6 0 L6 0 M0 -6 L0 6" stroke="#444" strokeWidth="2" />
+              </g>
+            </g>
+          </svg>
+        </div>
       </div>
-      <p className="text-xl font-bold uppercase tracking-widest text-white transition-all duration-500">{text}</p>
+
+      <div className="flex flex-col items-center space-y-2">
+        <h3 className="text-3xl font-black text-white italic tracking-tighter text-glow animate-pulse">
+          {status}
+        </h3>
+        <p className="text-red-500/80 font-bold text-xs uppercase tracking-widest letter-spacing-widest">
+           Pit Wall Analysis in Progress
+        </p>
+      </div>
     </div>
   );
 };
