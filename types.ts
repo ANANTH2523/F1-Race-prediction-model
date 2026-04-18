@@ -33,6 +33,8 @@ export interface RaceResultInfo {
   driver: string;
   team: string;
   startingPosition: number;
+  isDNF?: boolean;
+  isFastestLap?: boolean;
 }
 
 export interface ChampionshipStanding {

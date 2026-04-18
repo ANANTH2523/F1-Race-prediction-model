@@ -82,9 +82,21 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
                     <div className="flex items-center">
                       <span className={`w-1 h-6 mr-4 ${teamInfo.bg}`}></span>
                       <div className="relative group">
-                         <span className={`font-semibold cursor-help ${result.isDNF ? 'text-red-400' : 'text-white'}`}>
-                           {result.driver}
-                         </span>
+                         <div className="flex items-center gap-2">
+                            <span className={`font-semibold cursor-help ${result.isDNF ? 'text-red-400' : 'text-white'}`}>
+                              {result.driver}
+                            </span>
+                            {result.isFastestLap && (
+                              <div className="group/lap relative flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="absolute left-full ml-2 px-2 py-1 bg-purple-900 text-[10px] text-white rounded opacity-0 group-hover/lap:opacity-100 transition-opacity whitespace-nowrap z-20">
+                                  Fastest Lap
+                                </span>
+                              </div>
+                            )}
+                         </div>
                          {stats && <DriverStatsTooltip stats={stats} />}
                       </div>
                     </div>
