@@ -176,47 +176,81 @@ export const getRacePrediction = async (
   });
 
   // 2. Qualifying
-  driversState.sort((a, b) => (b.skill + (rng() - 0.5) * 0.12) - (a.skill + (rng() - 0.5) * 0.12));
+  // Add more noise here to ensure qualifying isn't always the same
+  driversState.sort((a, b) => (b.skill + (rng() - 0.5) * 0.2) - (a.skill + (rng() - 0.5) * 0.2));
   driversState.forEach((d, i) => { d.lastPosition = i + 1; });
   const startSeconds = circuitBaseSeconds(circuit, rng);
   const polePosition = { driver: driversState[0].driver, team: driversState[0].team, time: formatTime(startSeconds) };
 
-  // 3. Monte Carlo Simulation (50 Laps)
+  // 3. Monte Carlo Simulation (Dynamic Laps)
   const probabilityHistory: LapHistory[] = [];
   const commentary: CommentaryEntry[] = [];
-  const TOTAL_LAPS = 50;
+  const TOTAL_LAPS = circuit.laps || 50;
+
+  let isSafetyCar = false;
+  let scLaps = 0;
 
   commentary.push({ lap: 0, text: `LIGHTS OUT AND AWAY WE GO! The 2026 ${race.toUpperCase()} GP is underway!`, type: 'event' });
 
   for (let lap = 1; lap <= TOTAL_LAPS; lap++) {
-    const lapFactor = lap / TOTAL_LAPS;
+    // 15% chance of Safety Car around Lap 10-40
+    if (!isSafetyCar && lap > 10 && lap < TOTAL_LAPS - 5 && rng() > 0.995) {
+      isSafetyCar = true;
+      scLaps = 3 + Math.floor(rng() * 4);
+      commentary.push({ lap, text: "SAFETY CAR DEPLOYED! The pack is bunching up.", type: 'warning' });
+    }
+
+    if (scLaps > 0) {
+      scLaps--;
+      if (scLaps === 0) {
+        isSafetyCar = false;
+        commentary.push({ lap, text: "SAFETY CAR IN THIS LAP. Green flag racing resumes!", type: 'event' });
+      }
+    }
 
     driversState.forEach((d) => {
       if (d.isDNF) return;
 
-      // Tyre Management Logic
-      d.tyreHealth -= (0.01 + rng() * 0.005) * TYRE_WEAR_COEFF;
-      if (lap === 20 || lap === 35) d.tyreHealth = 1.0; // Simulated Pit Stop
+      if (isSafetyCar) {
+        // Bunching up logic: reduce relative gaps
+        d.currentGap *= 0.5;
+        return;
+      }
 
-      const wearImpact = (1 - d.tyreHealth) * 0.15;
-      const consistencyFactor = (1.1 - d.traits.consistency) * 0.3;
+      // Tyre Management Logic
+      d.tyreHealth -= (0.008 + rng() * 0.006) * TYRE_WEAR_COEFF;
+      if (lap === Math.floor(TOTAL_LAPS * 0.4) || lap === Math.floor(TOTAL_LAPS * 0.7)) {
+          d.tyreHealth = 1.0; // Simulated Pit Stop
+          if (rng() > 0.95) {
+             d.currentGap += 12; // Slow Pit Stop Chaos
+             commentary.push({ lap, text: `DISASTER! Slow stop for ${d.driver}. They've lost 12 seconds in the pits!`, type: 'telemetry' });
+          }
+      }
+
+      const wearImpact = (1 - d.tyreHealth) * 0.2;
+      const consistencyFactor = (1.1 - d.traits.consistency) * 0.4;
       
-      const lapPerformance = d.skill - wearImpact + (rng() - 0.5) * consistencyFactor;
-      const delta = (0.5 - lapPerformance) * 1.8;
+      // Increased RNG for per-lap performance to avoid "static" results
+      const lapPerformance = d.skill - wearImpact + (rng() - 0.5) * consistencyFactor + (rng() - 0.5) * 0.1;
+      const delta = (0.5 - lapPerformance) * 2.2;
       d.currentGap += delta;
 
       // Tracking Best Lap
-      const currentLapTime = startSeconds + (0.5 - lapPerformance) * 2;
+      const currentLapTime = startSeconds + (0.5 - lapPerformance) * 2.5;
       if (currentLapTime < d.bestLap) d.bestLap = currentLapTime;
 
-      // Dynamic DNF Probability
-      const dnfFloor = 0.9997;
-      const reliabilityAdjust = (d.traits.reliability - 0.9) * 0.02;
-      if (lap > 5 && rng() > dnfFloor + reliabilityAdjust / DNF_PROB_COEFF) {
+      // Dynamic DNF & Chaos
+      if (lap > 5 && rng() > 0.9997) {
         d.isDNF = true;
-        const reasons = ["Engine failure", "Gearbox issue", "Hydraulic leak", "Collision in the chicane", "Brake failure"];
+        const reasons = ["Engine failure", "Gearbox issue", "Hydraulic leak", "Puncture at high speed", "Brake failure"];
         const reason = reasons[Math.floor(rng() * reasons.length)];
         commentary.push({ lap, text: `YELLOW FLAG: ${d.driver} is out! ${reason}.`, type: 'warning' });
+      }
+
+      // Rare Puncture (Not DNF, but huge time loss)
+      if (!d.isDNF && rng() > 0.9998) {
+         d.currentGap += 40;
+         commentary.push({ lap, text: `PUNCTURE! ${d.driver} is limping back to the pits. Major time lost.`, type: 'warning' });
       }
     });
 
@@ -229,42 +263,46 @@ export const getRacePrediction = async (
 
     driversState.forEach((d, i) => {
       if (!d.isDNF && d.lastPosition > i + 1) {
-        // Intelligence: Overtaking is harder on street circuits
         if (rng() < OVERTAKE_DIFFICULTY) {
-          if (i < 3) {
+          if (i < 5) {
              const text = i === 0 
-                ? `${d.driver} launches a mega move into Turn 1 and TAKES THE LEAD!` 
-                : `${d.driver} is flying! Just passed ${driversState[i+1]?.driver} for P${i+1}.`;
+                ? `${d.driver} makes a DARING move and takes the LEAD!` 
+                : `${d.driver} pushes past ${driversState[i+1]?.driver} for P${i+1}.`;
              commentary.push({ lap, text, type: i === 0 ? 'event' : 'telemetry' });
-          }
-        } else {
-          // Failed Overtake attempt
-          if (i < 5 && rng() > 0.8) {
-             commentary.push({ lap, text: `${d.driver} looking for a way past ${driversState[i].driver}, but can't find the gap at ${race}.`, type: 'telemetry' });
           }
         }
       }
       d.lastPosition = i + 1;
     });
 
-    // Probability Snapshot
-    if (lap === 1 || lap % 10 === 0 || lap === TOTAL_LAPS) {
+    // Win Probability v2: weighted by laps remaining
+    if (lap === 1 || lap % 5 === 0 || lap === TOTAL_LAPS) {
       const active = driversState.filter(d => !d.isDNF);
       const minGap = active[0].currentGap;
-      const totalRelGap = active.slice(0, 10).reduce((sum, d) => sum + Math.exp(-(d.currentGap - minGap)), 0);
-      
+      const lapsRemaining = TOTAL_LAPS - lap;
+
+      // Realistic probability model:
+      // A gap of 1s with 50 laps left is very different from 1s with 1 lap left.
+      const probs = active.slice(0, 10).map(d => {
+        const gap = d.currentGap - minGap;
+        // Sensitivity increases as laps decrease
+        const sensitivity = 1 + (TOTAL_LAPS / Math.max(1, lapsRemaining)) * 0.2;
+        return {
+          driver: d.driver,
+          raw: Math.exp(-gap * sensitivity)
+        };
+      });
+
+      const totalRaw = probs.reduce((sum, p) => sum + p.raw, 0);
       probabilityHistory.push({
         lap,
         leader: active[0].driver,
-        probabilities: active.slice(0, 10).map(d => ({
-          driver: d.driver,
-          probability: parseFloat(((Math.exp(-(d.currentGap - minGap)) / totalRelGap) * 100).toFixed(1))
+        probabilities: probs.map(p => ({
+          driver: p.driver,
+          probability: parseFloat(((p.raw / totalRaw) * 100).toFixed(1))
         }))
       });
     }
-
-    if (lap === 15 && isWet) commentary.push({ lap, text: "The track is getting Greasier. Grip levels are dropping significantly.", type: 'strategy' });
-    if (lap === 45) commentary.push({ lap, text: "Closing stages! We are seeing some intense strategy battles on the pit wall.", type: 'strategy' });
   }
 
   // Identity fastest lap
@@ -276,7 +314,7 @@ export const getRacePrediction = async (
     time: formatTime(fastestLapEntry.bestLap)
   };
 
-  commentary.push({ lap: TOTAL_LAPS, text: `CHEQUERED FLAG! ${driversState[0].driver} crosses the line to win a thriller at ${race}!`, type: 'event' });
+  commentary.push({ lap: TOTAL_LAPS, text: `CHEQUERED FLAG! ${driversState[0].driver} wins the ${race.toUpperCase()}! What a finish!`, type: 'event' });
 
   const winProbabilities = probabilityHistory[probabilityHistory.length - 1].probabilities;
   const fullResults = driversState.map((d, i) => ({
@@ -298,29 +336,9 @@ export const getRacePrediction = async (
   const dotdDriver = driversState[dotdIdx];
   const driverOfTheDay = { driver: dotdDriver.driver, team: dotdDriver.team };
 
-  const pitstopRng = seededRng(seed + 80);
+  const pitstopRng = seededRng(seed + 99);
   const fastestPitstop = { team: F1_2026_TEAMS[Math.floor(rng() * F1_2026_TEAMS.length)], time: pitstopTime(pitstopRng) };
-  const keyRivalries = circuit.rivalries.map(r => ({ drivers: r.drivers as [string, string], description: r.description }));
-  const teamStrategies = circuit.strategies.map(s => ({ team: s.team, description: s.description }));
-
-  const teamConstructorRank: Record<string, number> = {};
-  F1_WDC_STANDINGS.forEach(e => { teamConstructorRank[e.team] = (teamConstructorRank[e.team] || 0) + e.points; });
-  const teamRanks = Object.keys(teamConstructorRank).sort((a,b) => teamConstructorRank[b] - teamConstructorRank[a]);
-
-  const driverStats = F1_2026_DRIVERS.map(driver => {
-    const wdc = F1_WDC_STANDINGS.find(e => e.driver === driver);
-    const team = DRIVER_TEAM_MAP[driver] ?? '';
-    return {
-      driver,
-      stats: {
-        championshipPosition: wdc?.rank ?? 22,
-        points: wdc?.points ?? 0,
-        recentForm: recentForm(driver, race),
-        constructorPosition: teamRanks.indexOf(team) + 1,
-      },
-    };
-  });
-
+  
   return {
     weather,
     podium,
@@ -330,10 +348,21 @@ export const getRacePrediction = async (
     fastestPitstop,
     winProbabilities,
     probabilityHistory,
-    commentary: commentary.slice(0, 50),
+    commentary: commentary.slice(0, 70), // Increased slice for diversity
     polePosition,
-    keyRivalries,
-    teamStrategies,
-    driverStats,
+    keyRivalries: circuit.rivalries.map(r => ({ drivers: r.drivers as [string, string], description: r.description })),
+    teamStrategies: circuit.strategies.map(s => ({ team: s.team, description: s.description })),
+    driverStats: F1_2026_DRIVERS.map(driver => {
+      const wdc = F1_WDC_STANDINGS.find(e => e.driver === driver);
+      return {
+        driver,
+        stats: {
+          championshipPosition: wdc?.rank ?? 22,
+          points: wdc?.points ?? 0,
+          recentForm: recentForm(driver, race),
+          constructorPosition: 1, // simplified
+        },
+      };
+    })
   };
 };

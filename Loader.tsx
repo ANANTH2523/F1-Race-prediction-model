@@ -72,6 +72,13 @@ const Loader: React.FC = () => {
 
         .car-pitting {
           transform: translateX(-50%) scale(1);
+          animation: pit-lift 0.6s ease-out forwards;
+        }
+
+        @keyframes pit-lift {
+          0% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-8px); } /* Jack Lift */
+          100% { transform: translateX(-50%) translateY(-6px); }
         }
 
         .car-exit {
@@ -86,13 +93,17 @@ const Loader: React.FC = () => {
         }
 
         @keyframes exit {
-          0% { transform: translateX(-50%) scale(1) rotate(0deg); }
-          20% { transform: translateX(-40%) scale(1.02) rotate(-3deg); } /* Acceleration squat */
+          0% { transform: translateX(-50%) translateY(-6px) rotate(0deg); }
+          10% { transform: translateX(-48%) translateY(0) rotate(-2deg); } /* Drop from jack */
+          40% { transform: translateX(-20%) translateY(2px) rotate(-4deg); } /* Power squat */
           100% { transform: translateX(450%) scale(1.1) rotate(0deg); filter: blur(2px); }
         }
 
-        .wheel {
-          animation: spin 0.3s linear infinite;
+        .wheel-rear {
+          animation: spin 0.4s linear infinite;
+        }
+        .wheel-front {
+          animation: spin 0.35s linear infinite; /* Higher revs on front */
         }
         
         @keyframes spin {
@@ -142,15 +153,30 @@ const Loader: React.FC = () => {
       <div className="track">
         <div className="pit-box"></div>
         
-        {/* Mechanics at pit positions */}
-        {phase === 'pitting' && (
-          <>
-            <div className="mechanic active-mechanic" style={{ left: '42%', bottom: '40px' }} />
-            <div className="mechanic active-mechanic" style={{ left: '58%', bottom: '40px' }} />
-            <div className="mechanic active-mechanic" style={{ left: '42%', bottom: '5px' }} />
-            <div className="mechanic active-mechanic" style={{ left: '58%', bottom: '5px' }} />
-          </>
-        )}
+        {/* Mechanics / Pit Crew Silhouettes */}
+        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${phase === 'pitting' ? 'opacity-100' : 'opacity-0'}`}>
+          {/* Rear Jack Operator */}
+          <div className="absolute" style={{ left: '32%', bottom: '20px' }}>
+            <svg width="40" height="60" viewBox="0 0 40 60">
+              <path d="M10 60 L20 10 L30 60 Z" fill="#222" />
+              <circle cx="20" cy="8" r="6" fill="#111" />
+              <rect x="5" y="45" width="30" height="4" fill="#333" rx="2" /> {/* Jack handle */}
+            </svg>
+          </div>
+          {/* Front Jack Operator */}
+          <div className="absolute" style={{ left: '62%', bottom: '20px' }}>
+            <svg width="40" height="60" viewBox="0 0 40 60">
+              <path d="M10 60 L20 10 L30 60 Z" fill="#222" />
+              <circle cx="20" cy="8" r="6" fill="#111" />
+              <rect x="5" y="45" width="30" height="4" fill="#333" rx="2" />
+            </svg>
+          </div>
+          {/* Wheel Gunners (Animated dots indicating activity) */}
+          <div className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{ left: '44%', bottom: '55px' }} />
+          <div className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{ left: '54%', bottom: '55px' }} />
+          <div className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{ left: '44%', bottom: '5px' }} />
+          <div className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{ left: '54%', bottom: '5px' }} />
+        </div>
 
         <div className={`car-container car-${phase}`}>
           <svg viewBox="0 0 220 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -190,7 +216,7 @@ const Loader: React.FC = () => {
             <g transform="translate(55, 48)">
               <circle cx="0" cy="0" r="12" fill="#111" />
               <circle cx="0" cy="0" r="13" fill="none" stroke="#222" strokeWidth="1" />
-              <g className={phase !== 'pitting' ? 'wheel' : ''}>
+              <g className={phase !== 'pitting' ? 'wheel-rear' : ''}>
                 <circle cx="0" cy="0" r="4" fill="#333" />
                 <path d="M-6 0 L6 0 M0 -6 L0 6" stroke="#444" strokeWidth="2" />
               </g>
@@ -200,7 +226,7 @@ const Loader: React.FC = () => {
             <g transform="translate(170, 48)">
               <circle cx="0" cy="0" r="12" fill="#111" />
               <circle cx="0" cy="0" r="13" fill="none" stroke="#222" strokeWidth="1" />
-              <g className={phase !== 'pitting' ? 'wheel' : ''}>
+              <g className={phase !== 'pitting' ? 'wheel-front' : ''}>
                 <circle cx="0" cy="0" r="4" fill="#333" />
                 <path d="M-6 0 L6 0 M0 -6 L0 6" stroke="#444" strokeWidth="2" />
               </g>
