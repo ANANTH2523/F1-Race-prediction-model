@@ -57,20 +57,24 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
               let changeContent: React.ReactNode;
               if (positionChange > 0) {
                 changeContent = (
-                  <div className="flex items-center justify-center gap-1 text-green-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" /></svg>
-                    <span>{positionChange}</span>
+                  <div className="flex items-center justify-center px-2 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.1)]">
+                    <span className="text-[10px] mr-1">▲</span>
+                    <span className="text-xs font-black">{positionChange}</span>
                   </div>
                 );
               } else if (positionChange < 0) {
                 changeContent = (
-                  <div className="flex items-center justify-center gap-1 text-red-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-                    <span>{Math.abs(positionChange)}</span>
+                  <div className="flex items-center justify-center px-2 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]">
+                    <span className="text-[10px] mr-1">▼</span>
+                    <span className="text-xs font-black">{Math.abs(positionChange)}</span>
                   </div>
                 );
               } else {
-                changeContent = <span className="text-gray-400 font-bold">-</span>;
+                changeContent = (
+                  <div className="flex items-center justify-center px-2 py-1 rounded-full bg-gray-500/10 text-gray-500 border border-white/5">
+                    <span className="text-xs font-black">=</span>
+                  </div>
+                );
               }
 
               return (
