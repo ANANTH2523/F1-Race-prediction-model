@@ -325,6 +325,7 @@ const App: React.FC = () => {
       )}
     </div>
   );
+};
 
   const PredictionResults = () => {
     if (!prediction) return null;

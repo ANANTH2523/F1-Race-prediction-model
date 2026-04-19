@@ -130,7 +130,8 @@ const DEFAULT_TRAITS = { aggression: 0.7, reliability: 0.9, experience: 0.5, con
 
 // ---------------------------------------------------------------------------
 // Main export
-// --------------------------------------------------------------------------export const getRacePrediction = async (
+// --------------------------------------------------------------------------
+export const getRacePrediction = async (
   race: string,
   liveStandings?: { driver?: string; team: string; points: number; wins: number }[],
   liveConstructorStandings?: { team: string; points: number; wins: number }[],
