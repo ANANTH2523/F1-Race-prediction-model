@@ -35,6 +35,8 @@ export interface RaceResultInfo {
   startingPosition: number;
   isDNF?: boolean;
   isFastestLap?: boolean;
+  finalTyreHealth?: number;
+  pointsGained: number;
 }
 
 export interface ChampionshipStanding {
@@ -99,4 +101,6 @@ export interface PredictionData {
   keyRivalries: Rivalry[];
   teamStrategies: Strategy[];
   driverStats: DriverStatsEntry[];
+  isSprint: boolean;
+  actualLaps: number;
 }

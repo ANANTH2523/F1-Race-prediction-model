@@ -1,36 +1,84 @@
-import React from 'react';
-import type { RaceResultInfo, DriverStats } from './types';
-import { TEAM_COLORS } from './constants';
+import { TEAM_COLORS, DRIVER_STATS, DRIVER_PERSONAS } from './constants';
 
-interface ResultsTableProps {
-  results: RaceResultInfo[];
-  title: string;
-  driverStats: { [driverName: string]: DriverStats };
-}
+const RadarChart: React.FC<{ driver: string }> = ({ driver }) => {
+  const stats = DRIVER_STATS[driver] || { pace: 70, defense: 70, overtaking: 70, consistency: 70 };
+  
+  // Scale stats (0-100) to coordinates (center 50,50)
+  // Axis: Pace (top), Defense (right), Overtaking (bottom), Consistency (left)
+  const p = { x: 50, y: 50 - (stats.pace * 0.4) };
+  const d = { x: 50 + (stats.defense * 0.4), y: 50 };
+  const o = { x: 50, y: 50 + (stats.overtaking * 0.4) };
+  const c = { x: 50 - (stats.consistency * 0.4), y: 50 };
 
-const DriverStatsTooltip: React.FC<{ stats: DriverStats }> = ({ stats }) => (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
-        <h4 className="font-bold text-white border-b border-gray-600 pb-1 mb-2">Driver Stats</h4>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-                <p className="text-gray-400">WDC Rank</p>
-                <p className="font-bold text-white">{stats.championshipPosition || 'N/A'}</p>
-            </div>
-            <div>
-                <p className="text-gray-400">Points</p>
-                <p className="font-bold text-white">{stats.points || 'N/A'}</p>
-            </div>
-             <div>
-                <p className="text-gray-400">WCC Rank</p>
-                <p className="font-bold text-white">{stats.constructorPosition || 'N/A'}</p>
-            </div>
-            <div>
-                <p className="text-gray-400">Recent Form</p>
-                <p className="font-bold text-white">{stats.recentForm || 'N/A'}</p>
-            </div>
+  const points = `${p.x},${p.y} ${d.x},${d.y} ${o.x},${o.y} ${c.x},${c.y}`;
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 100 100" className="w-32 h-32 drop-shadow-[0_0_8px_rgba(225,6,0,0.4)]">
+        {/* Background Grids */}
+        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+        <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+        <line x1="50" y1="10" x2="50" y2="90" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+        <line x1="10" y1="50" x2="90" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+        
+        {/* The Data Polygon */}
+        <polygon
+          points={points}
+          fill="rgba(225, 6, 0, 0.4)"
+          stroke="#E10600"
+          strokeWidth="1.5"
+          className="animate-pulse"
+        />
+
+        {/* Labels (Minimalist) */}
+        <text x="50" y="8" textAnchor="middle" className="fill-gray-500 text-[6px] font-black uppercase">PAC</text>
+        <text x="92" y="52" textAnchor="middle" className="fill-gray-500 text-[6px] font-black uppercase">DEF</text>
+        <text x="50" y="98" textAnchor="middle" className="fill-gray-500 text-[6px] font-black uppercase">OVR</text>
+        <text x="8" y="52" textAnchor="middle" className="fill-gray-500 text-[6px] font-black uppercase">CON</text>
+      </svg>
+    </div>
+  );
+};
+
+const DriverStatsTooltip: React.FC<{ driver: string; stats: DriverStats }> = ({ driver, stats }) => {
+    const persona = DRIVER_PERSONAS[driver] || "The Contender";
+    
+    return (
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-72 bg-[#0d0d0d]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.8)] p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0">
+        <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
+           <div>
+              <h4 className="font-black text-white text-lg tracking-tighter uppercase italic">{driver}</h4>
+              <p className="text-red-500 text-[9px] font-black uppercase tracking-[0.2em]">{persona}</p>
+           </div>
+           <div className="text-right">
+              <span className="text-white/40 text-[9px] font-bold">WDC RANK</span>
+              <p className="font-black text-white text-xl leading-none">#{stats.championshipPosition || '?'}</p>
+           </div>
+        </div>
+
+        <div className="flex gap-4 items-center">
+           <RadarChart driver={driver} />
+           <div className="flex-1 space-y-2">
+              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                 <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Recent Form</p>
+                 <p className="text-xs font-bold text-gray-200">{stats.recentForm || 'Stable'}</p>
+              </div>
+              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                 <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">WCC Impact</p>
+                 <p className="text-xs font-bold text-gray-200">P{stats.constructorPosition || '?'}</p>
+              </div>
+              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                 <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Season Points</p>
+                 <p className="text-xs font-bold text-white">{stats.points || '0'} PTS</p>
+              </div>
+           </div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-white/5 text-center">
+           <p className="text-[7px] text-gray-600 font-bold uppercase tracking-[0.3em]">Advanced Skill Telemetry 2026</p>
         </div>
     </div>
-);
+    );
+};
 
 
 const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats }) => {
@@ -46,6 +94,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
               <th className="p-3 text-sm font-semibold text-gray-400 hidden md:table-cell">TEAM</th>
               <th className="p-3 text-sm font-semibold text-gray-400 w-12 text-center">GRID</th>
               <th className="p-3 text-sm font-semibold text-gray-400 w-12 text-center">+/-</th>
+              <th className="p-3 text-sm font-semibold text-gray-400 w-12 text-center">PTS</th>
             </tr>
           </thead>
           <tbody>
@@ -77,6 +126,10 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
                 );
               }
 
+              const tyreHealth = result.finalTyreHealth ?? 1.0;
+              const tyreColor = tyreHealth > 0.6 ? 'bg-green-500' : tyreHealth > 0.3 ? 'bg-yellow-500' : 'bg-red-500';
+              const tyreLabel = tyreHealth > 0.6 ? 'Fresh' : tyreHealth > 0.3 ? 'Worn' : 'Critical';
+
               return (
                 <tr key={result.position} className={`border-b border-gray-700 hover:bg-gray-700/50 ${result.isDNF ? 'opacity-60 bg-red-900/5' : ''}`}>
                   <td className={`p-3 font-bold text-center ${result.isDNF ? 'text-red-500' : 'text-white'}`}>
@@ -86,22 +139,30 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
                     <div className="flex items-center">
                       <span className={`w-1 h-6 mr-4 ${teamInfo.bg}`}></span>
                       <div className="relative group">
-                         <div className="flex items-center gap-2">
-                            <span className={`font-semibold cursor-help ${result.isDNF ? 'text-red-400' : 'text-white'}`}>
-                              {result.driver}
-                            </span>
-                            {result.isFastestLap && (
-                              <div className="group/lap relative flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="absolute left-full ml-2 px-2 py-1 bg-purple-900 text-[10px] text-white rounded opacity-0 group-hover/lap:opacity-100 transition-opacity whitespace-nowrap z-20">
-                                  Fastest Lap
-                                </span>
-                              </div>
+                         <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                               <span className={`font-semibold cursor-help ${result.isDNF ? 'text-red-400' : 'text-white'}`}>
+                                 {result.driver}
+                               </span>
+                               {result.isFastestLap && (
+                                 <div className="group/lap relative flex items-center">
+                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                   </svg>
+                                 </div>
+                               )}
+                            </div>
+                            {/* Tyre Telemetry Bar */}
+                            {!result.isDNF && (
+                               <div className="flex items-center gap-2 mt-1">
+                                  <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
+                                     <div className={`h-full ${tyreColor} transition-all duration-1000`} style={{ width: `${tyreHealth * 100}%` }} />
+                                  </div>
+                                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-tighter">{tyreLabel}</span>
+                               </div>
                             )}
                          </div>
-                         {stats && <DriverStatsTooltip stats={stats} />}
+                         {stats && <DriverStatsTooltip driver={result.driver} stats={stats} />}
                       </div>
                     </div>
                   </td>
@@ -109,6 +170,9 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, title, driverStats
                   <td className="p-3 font-mono text-white text-center">{result.startingPosition}</td>
                   <td className="p-3 font-mono font-bold text-center">
                     {result.isDNF ? <span className="text-gray-600">—</span> : changeContent}
+                  </td>
+                  <td className="p-3 font-mono font-black text-center text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
+                    +{result.pointsGained}
                   </td>
                 </tr>
               );

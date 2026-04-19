@@ -130,8 +130,7 @@ const DEFAULT_TRAITS = { aggression: 0.7, reliability: 0.9, experience: 0.5, con
 
 // ---------------------------------------------------------------------------
 // Main export
-// ---------------------------------------------------------------------------
-export const getRacePrediction = async (
+// --------------------------------------------------------------------------export const getRacePrediction = async (
   race: string,
   liveStandings?: { driver?: string; team: string; points: number; wins: number }[],
   liveConstructorStandings?: { team: string; points: number; wins: number }[],
@@ -139,9 +138,13 @@ export const getRacePrediction = async (
   const seed = hashString(race);
   const rng = seededRng(seed);
 
+  const isSprint = race.toLowerCase().includes('sprint');
   const circuit = getCircuit(race);
   const rKey = circuit.key;
   
+  // Dynamic Laps: Sprint is ~100km (1/3rd distance)
+  const TOTAL_LAPS = isSprint ? Math.ceil((circuit.laps || 50) / 3) : (circuit.laps || 50);
+
   // Intelligence Coefficients
   const OVERTAKE_DIFFICULTY = rKey === 'monaco' || rKey === 'hungary' ? 0.4 : 1.0;
   const TYRE_WEAR_COEFF = rKey === 'bahrain' || rKey === 'spanish' ? 1.4 : 1.0;
@@ -168,7 +171,7 @@ export const getRacePrediction = async (
     baseScore += standingBoost(driver);
     baseScore += teamBoostFor(team, circuit.teamBoost);
 
-    if (isWet) baseScore += (traits.experience - 0.5) * 0.15; // Experience heavily matters in wet
+    if (isWet) baseScore += (traits.experience - 0.5) * 0.15;
 
     return {
       driver,
@@ -178,14 +181,14 @@ export const getRacePrediction = async (
       currentGap: 0,
       skill: baseScore,
       isDNF: false,
-      gridPosition: 0, // Set after qualifying
+      gridPosition: 0,
       lastPosition: 0,
       tyreHealth: 1.0,
       bestLap: 999
     };
   });
 
-  // 2. Qualifying (75 years of data shows top teams almost always occupy the first 2-3 rows)
+  // 2. Qualifying
   driversState.sort((a, b) => (b.skill + (rng() - 0.5) * 0.1) - (a.skill + (rng() - 0.5) * 0.1));
   driversState.forEach((d, i) => { 
     d.gridPosition = i + 1; 
@@ -195,28 +198,33 @@ export const getRacePrediction = async (
   const startSeconds = circuitBaseSeconds(circuit, rng);
   const polePosition = { driver: driversState[0].driver, team: driversState[0].team, time: formatTime(startSeconds) };
 
-  // 3. Historical Simulation
+  // 3. Simulation Narrative
   const probabilityHistory: LapHistory[] = [];
   const commentary: CommentaryEntry[] = [];
-  const TOTAL_LAPS = circuit.laps || 50;
   let isSafetyCar = false;
   let scLaps = 0;
 
-  commentary.push({ lap: 0, text: `LIGHTS OUT AND AWAY WE GO! The historic ${circuit.officialName} venue is roaring for the 2026 GP!`, type: 'event' });
+  const startMsg = isSprint 
+    ? `IT'S SPRINT SATURDAY! ${TOTAL_LAPS} laps of pure adrenaline at ${circuit.officialName}. No stops. Just raw pace!` 
+    : `LIGHTS OUT AND AWAY WE GO! The historic ${circuit.officialName} venue is roaring for the 2026 GP!`;
+  
+  commentary.push({ lap: 0, text: startMsg, type: 'event' });
 
   for (let lap = 1; lap <= TOTAL_LAPS; lap++) {
-    // Safety Car logic (10% chance per race for realism)
-    if (!isSafetyCar && lap > 10 && lap < TOTAL_LAPS - 5 && rng() > 0.998) {
+    const isPitWindow = !isSprint && (lap > TOTAL_LAPS * 0.4 && lap < TOTAL_LAPS * 0.6);
+
+    // 1. Safety Car logic
+    if (!isSafetyCar && lap > 5 && lap < TOTAL_LAPS - 2 && rng() > (isSprint ? 0.999 : 0.998)) {
       isSafetyCar = true;
-      scLaps = 3 + Math.floor(rng() * 4);
-      commentary.push({ lap, text: "SAFETY CAR DEPLOYED! Packing up the field.", type: 'warning' });
+      scLaps = isSprint ? 2 : (3 + Math.floor(rng() * 4));
+      commentary.push({ lap, text: isSprint ? "VIRTUAL SAFETY CAR: Field bunched!" : "SAFETY CAR DEPLOYED! Strategic nightmare unfolding.", type: 'warning' });
     }
 
     if (scLaps > 0) {
       scLaps--;
       if (scLaps === 0) {
         isSafetyCar = false;
-        commentary.push({ lap, text: "SAFETY CAR IN... Green Flag!", type: 'event' });
+        commentary.push({ lap, text: "GREEN FLAG: Full power restored!", type: 'event' });
       }
     }
 
@@ -224,48 +232,48 @@ export const getRacePrediction = async (
       if (d.isDNF) return;
 
       if (isSafetyCar) {
-        d.currentGap *= 0.15; // Real-world bunching (90% reduction approx)
+        d.currentGap *= 0.15;
         return;
       }
 
-      // 1. Basic Pace
-      d.tyreHealth -= (0.009 + rng() * 0.005) * TYRE_WEAR_COEFF;
-      if (lap === Math.floor(TOTAL_LAPS * 0.45)) d.tyreHealth = 1.0; // Pit transition
-
-      const wearImpact = (1 - d.tyreHealth) * 0.25;
-      let lapPerformance = d.skill - wearImpact + (rng() - 0.5) * (0.1 / d.traits.consistency);
+      // 3. Basic Pace & Tyre Logic
+      // Sprints have higher tyre degradation because drivers push harder (no conservation)
+      const wearRate = (0.008 + rng() * 0.006) * TYRE_WEAR_COEFF * (isSprint ? 1.25 : 1.0);
+      d.tyreHealth -= wearRate;
       
-      // 2. Dirty Air Modeling (Following car penalty)
+      if (isPitWindow && d.tyreHealth < 0.4 && rng() > 0.7) {
+          d.tyreHealth = 1.0;
+          commentary.push({ lap, text: `[RADIO] ${d.team.split(' ')[0]}: "Box Box. Fitting the Hard compound for the final stint."`, type: 'strategy' });
+      }
+
+      const wearImpact = (1 - d.tyreHealth) * (isSprint ? 0.4 : 0.28);
+      let lapPerformance = d.skill - wearImpact + (rng() - 0.5) * (0.08 / d.traits.consistency);
+      
       const currentPos = driversState.findIndex(ds => ds.driver === d.driver) + 1;
+      
+      // 4. Dirty Air Modeling
       if (currentPos > 1) {
          const aheadGap = d.currentGap - driversState[currentPos - 2].currentGap;
-         if (aheadGap < 1.0) {
-            // Turbulence Penalty: Experience (Alonso/Hamilton) mitigates this by 40%
-            const turbPenalty = (0.3 - d.traits.experience * 0.1) * (1 / OVERTAKE_DIFFICULTY);
+         if (aheadGap < 0.8) {
+            const turbPenalty = (0.25 - d.traits.experience * 0.1) * (1 / OVERTAKE_DIFFICULTY);
             lapPerformance -= turbPenalty;
          }
       }
 
-      // 3. Recovery Intelligence (Tier S/A recovery from back)
-      if (currentPos > 8 && (d.tier === 'S' || d.tier === 'A')) {
-         lapPerformance += 0.15; // "The Spa 2022 Factor" - Elite cars hunting through midfield
-      }
-
-      const delta = (0.5 - lapPerformance) * 1.5;
+      const delta = (0.5 - lapPerformance) * 1.6;
       d.currentGap += delta;
 
-      const currentLapTime = startSeconds + (0.5 - lapPerformance) * 3;
+      const currentLapTime = startSeconds + (0.5 - lapPerformance) * 3.2;
       if (currentLapTime < d.bestLap) d.bestLap = currentLapTime;
 
-      // Realistic DNF rates (Modern F1 is 98% reliable)
-      if (lap > 5 && rng() > 0.9999 + (d.traits.reliability * 0.0001)) {
+      // DNF
+      if (lap > 2 && rng() > 0.9999 + (d.traits.reliability * 0.0001)) {
         d.isDNF = true;
-        const reasons = ["Power Unit loss", "Hydraulic failure", "Suspension damage"];
-        commentary.push({ lap, text: `DNF: ${d.driver} out with ${reasons[Math.floor(rng() * reasons.length)]}.`, type: 'warning' });
+        commentary.push({ lap, text: `DNF: Mechanical failure for ${d.driver}. Heartbreak at ${circuit.officialName}.`, type: 'warning' });
       }
     });
 
-    // Re-sort and Overtake
+    // 6. Re-sort and Overtake
     driversState.sort((a, b) => {
       if (a.isDNF) return 1;
       if (b.isDNF) return -1;
@@ -274,32 +282,28 @@ export const getRacePrediction = async (
 
     driversState.forEach((d, i) => {
        if (!d.isDNF && d.lastPosition > i + 1) {
-          // Overtaking Logic
-          const tierDiff = (d.tier === 'S' ? 3 : d.tier === 'A' ? 2 : 1) - (driversState[i].tier === 'S' ? 3 : driversState[i].tier === 'A' ? 2 : 1);
-          const overtakeProb = (d.traits.aggression * 0.5) + (tierDiff * 0.2) + (OVERTAKE_DIFFICULTY * 0.3);
-          
-          if (rng() < overtakeProb) {
-             if (i < 5) commentary.push({ lap, text: `${d.driver} pulls a classic move on ${driversState[i+1]?.driver}! Up to P${i+1}.`, type: 'telemetry' });
-          } else {
-             d.currentGap = driversState[i].currentGap + 0.5; // Stuck in dirty air
+          const overtakeProb = (d.traits.aggression * 0.5) + (OVERTAKE_DIFFICULTY * 0.3);
+          if (rng() < overtakeProb && i < 10) {
+              const msg = `${d.driver} surges into P${i+1}! Incredible aggression!`;
+              commentary.push({ lap, text: msg, type: 'event' });
           }
        }
        d.lastPosition = i + 1;
     });
 
-    // Probability Snapshot
-    if (lap === 1 || lap % 10 === 0 || lap === TOTAL_LAPS) {
+    // 7. Probability Snapshot
+    if (lap === 1 || lap % (isSprint ? 5 : 10) === 0 || lap === TOTAL_LAPS) {
       const active = driversState.filter(d => !d.isDNF);
       const minGap = active[0].currentGap;
       const lapsLeft = TOTAL_LAPS - lap;
       
       const pData = active.slice(0, 10).map(d => {
          const gap = d.currentGap - minGap;
-         const winProb = Math.max(0, 100 - (gap * (15 / (lapsLeft + 1)))); // Intelligence: Gap sensitivity increases near finish
+         const winProb = Math.max(0, 100 - (gap * (18 / (lapsLeft + 1))));
          return { driver: d.driver, weight: winProb };
       });
 
-      const totalW = pData.reduce((s, p) => s + p.weight, 0);
+      const totalW = pData.reduce((s, p) => s + p.weight, 1);
       probabilityHistory.push({
         lap,
         leader: active[0].driver,
@@ -308,50 +312,71 @@ export const getRacePrediction = async (
     }
   }
 
-  // Identity fastest lap
+  // 4. Results & Points logic
   const winners = driversState.filter(d => !d.isDNF).sort((a,b) => a.bestLap - b.bestLap);
   const fastestLap = { driver: winners[0].driver, team: winners[0].team, time: formatTime(winners[0].bestLap) };
 
-  const fullResults = driversState.map((d, i) => ({
-    position: i + 1,
-    driver: d.driver,
-    team: d.team,
-    startingPosition: d.gridPosition, // Use fixed gridPosition
-    isDNF: d.isDNF,
-    isFastestLap: d.driver === fastestLap.driver
-  }));
+  const getPoints = (pos: number, hasFastest: boolean) => {
+    if (isSprint) {
+      // Sprint: 8..1
+      return pos <= 8 ? (9 - pos) : 0;
+    } else {
+      // Full: 25, 18, 15, 12, 10, 8, 6, 4, 2, 1
+      const pTable = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+      let pts = (pos <= 10) ? pTable[pos - 1] : 0;
+      if (hasFastest && pos <= 10) pts += 1; // FL point only if in top 10
+      return pts;
+    }
+  };
+
+  const fullResults = driversState.map((d, i) => {
+    const isFastest = d.driver === fastestLap.driver;
+    return {
+      position: i + 1,
+      driver: d.driver,
+      team: d.team,
+      startingPosition: d.gridPosition,
+      isDNF: d.isDNF,
+      isFastestLap: isFastest,
+      finalTyreHealth: Math.max(0.1, d.tyreHealth),
+      pointsGained: getPoints(i + 1, isFastest)
+    };
+  });
+
+  const finishMsg = isSprint 
+    ? `CHEQUERED FLAG! ${driversState[0].driver} takes the Sprint victory! Valuable points in the bag.`
+    : `CHEQUERED FLAG! ${driversState[0].driver} wins the ${race}! A historic day.`;
+
+  commentary.push({ lap: TOTAL_LAPS, text: finishMsg, type: 'event' });
 
   return {
     weather,
     podium: fullResults.slice(0, 3).map((r, i) => ({ position: i + 1, driver: r.driver, team: r.team })),
     fullResults,
     fastestLap,
-    driverOfTheDay: { driver: driversState[3].driver, team: driversState[3].team }, // intelligence: hard fought racing
-    fastestPitstop: { team: "McLaren Formula 1 Team", time: "1.85s" },
+    driverOfTheDay: { driver: driversState[Math.floor(rng() * 4 + 2)].driver, team: driversState[3].team }, 
+    fastestPitstop: { team: "McLaren Formula 1 Team", time: "1.82s" },
     winProbabilities: probabilityHistory[probabilityHistory.length - 1].probabilities,
     probabilityHistory,
-    commentary: commentary.slice(0, 50),
+    commentary: commentary.slice(-60).sort((a,b) => a.lap - b.lap),
     polePosition,
     keyRivalries: circuit.rivalries.map(r => ({ drivers: r.drivers as [string, string], description: r.description })),
     teamStrategies: circuit.strategies.map(s => ({ team: s.team, description: s.description })),
+    isSprint,
+    actualLaps: TOTAL_LAPS,
     driverStats: F1_2026_DRIVERS.map(driver => {
       const wdc = F1_WDC_STANDINGS.find(e => e.driver === driver);
       const team = DRIVER_TEAM_MAP[driver] || '';
-      // Group standings by team to get constructor points
       const teamPoints: Record<string, number> = {};
-      F1_WDC_STANDINGS.forEach(s => {
-        teamPoints[s.team] = (teamPoints[s.team] || 0) + s.points;
-      });
+      F1_WDC_STANDINGS.forEach(s => { teamPoints[s.team] = (teamPoints[s.team] || 0) + s.points; });
       const teamRanks = Object.keys(teamPoints).sort((a, b) => teamPoints[b] - teamPoints[a]);
-      const cPos = teamRanks.indexOf(team) + 1;
-
       return { 
         driver, 
         stats: { 
           championshipPosition: wdc?.rank ?? 22, 
           points: wdc?.points ?? 0, 
           recentForm: recentForm(driver, race), 
-          constructorPosition: cPos > 0 ? cPos : 11
+          constructorPosition: teamRanks.indexOf(team) + 1 || 11
         } 
       };
     })

@@ -287,7 +287,9 @@ const App: React.FC = () => {
     </div>
   );
 
-  const Controls = () => (
+  const Controls = () => {
+    const isSprint = selectedRace.toLowerCase().includes('sprint');
+    return (
     <div
       className="flex flex-col items-center justify-center gap-4 mb-8 px-4 animate-fade-in"
       style={{ animationDelay: "0.4s" }}
@@ -313,6 +315,14 @@ const App: React.FC = () => {
           {isLoading ? "ANALYZING..." : "PREDICT"}
         </button>
       </div>
+      {isSprint && (
+        <div className="flex items-center gap-2 mt-2 px-4 py-1.5 bg-purple-600/20 border border-purple-500/50 rounded-full animate-pulse">
+           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+           </svg>
+           <span className="text-xs font-black text-purple-400 tracking-[0.2em] uppercase">Sprint Format Active</span>
+        </div>
+      )}
     </div>
   );
 
@@ -416,7 +426,7 @@ const App: React.FC = () => {
 
   const MainContent = () => {
     if (isLoading) {
-      return <Loader />;
+      return <Loader raceName={selectedRace} />;
     }
     if (error) {
       return (

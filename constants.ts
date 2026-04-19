@@ -906,3 +906,24 @@ export const RACE_CIRCUITS = [
     { rank: 20, driver: "Jack Doohan", team: "BWT Alpine F1 Team", points: 2 },
     { rank: 21, driver: "Gabriel Bortoleto", team: "Kick Sauber", points: 0 },
   ];
+export const DRIVER_STATS: Record<string, { pace: number; defense: number; overtaking: number; consistency: number }> = {
+  "Max Verstappen": { pace: 98, defense: 94, overtaking: 96, consistency: 95 },
+  "Lando Norris":   { pace: 95, defense: 88, overtaking: 94, consistency: 92 },
+  "Lewis Hamilton": { pace: 94, defense: 92, overtaking: 90, consistency: 96 },
+  "Charles Leclerc":{ pace: 96, defense: 85, overtaking: 92, consistency: 88 },
+  "Oscar Piastri":  { pace: 93, defense: 90, overtaking: 88, consistency: 94 },
+  "George Russell": { pace: 92, defense: 87, overtaking: 89, consistency: 85 },
+  "Carlos Sainz":   { pace: 90, defense: 91, overtaking: 85, consistency: 93 },
+  "Fernando Alonso":{ pace: 88, defense: 98, overtaking: 95, consistency: 90 },
+};
+
+export const DRIVER_PERSONAS: Record<string, string> = {
+  "Max Verstappen": "The Hunter",
+  "Lando Norris": "The Prodigy",
+  "Lewis Hamilton": "The Professor",
+  "Charles Leclerc": "The Prince of Pace",
+  "Oscar Piastri": "The Ice Man",
+  "George Russell": "The Technician",
+  "Carlos Sainz": "The Smooth Operator",
+  "Fernando Alonso": "The Matador",
+};
